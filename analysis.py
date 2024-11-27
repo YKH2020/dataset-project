@@ -6,8 +6,19 @@ from statsmodels.stats.power import TTestIndPower
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 
+# ----------------------------
+# Data Preprocessing Functions
+# ----------------------------
 def o_score(df):
-    # Define correct answers for each category
+    '''
+    Appends the objective score feature column to the dataframe df.
+
+    Args:
+        df (pd.Dataframe): Any dataframe, in this case [the original responses.csv]
+
+    Returns:
+        pd.Dataframe: A dataframe that adds the o_score computed columns for an input dataframe df.
+    '''
     correct_answers = {
         'MQ': {
             'MQ1': 'No single algorithm performs best across all tasks',
@@ -34,6 +45,15 @@ def o_score(df):
 
     # Function to calculate score
     def calculate_score(row):
+        '''
+        Calculates the score of the objective score questions that a participant had taken.
+
+        Args:
+            row (pd.Row) The row of a dataframe df.
+
+        Returns:
+            int: The score out of 5 that is achieved from the answers in the columns.
+        '''
         score = 0
         if row['SQ18'] == 'AIPI 520 - Modeling Process & Algorithms':
             for i in range(1, 6):
@@ -52,51 +72,66 @@ def o_score(df):
                     score += 1
         return score
 
-    # Apply the scoring function to each row and create a new column 'o_score'
     df['o_score'] = df.apply(calculate_score, axis=1)
 
     return df
 
 def encode_column_names(columns):
+    '''
+    Encodes column names to make the feature names much more concise.
+
+    Args:
+        columns (list of str): A list of column names.
+
+    Returns:
+        dict: A dictionary where keys are the new encoded names and values are the original column names.
+    '''
     encoded_mapping = {}
 
-    # Encode the first 18 columns as SQ1 to SQ18
+    # Takes the first 18 questions in the original columns and encodes them.
     for i in range(1, 19):
         encoded_mapping[f"SQ{i}"] = columns[i]
 
-    # Encode the next 5 columns as BQ1 to BQ5
+    # Takes the next 5 questions that have been answered in the original columns and encodes them.
     for i, col in enumerate(columns[19:24], start=1):
         encoded_mapping[f"BQ{i}"] = col
 
-    # Encode the next 5 columns as DQ1 to DQ5
+    # Takes the next 5 questions that have been answered in the original columns and encodes them.
     for i, col in enumerate(columns[24:29], start=1):
         encoded_mapping[f"DQ{i}"] = col
 
-    # Encode the last 5 columns as MQ1 to MQ5
+    # Takes the next 5 questions that have been answered in the original columns and encodes them.
     for i, col in enumerate(columns[29:], start=1):
         encoded_mapping[f"MQ{i}"] = col
 
     return encoded_mapping
 
 def preprocessing(responses_df):
-    # Get the original column names and generate the mapping
+    '''
+    Preprocesses a survey responses DataFrame.
+
+    Args:
+        responses_df (pd.DataFrame): The input DataFrame containing survey responses.
+
+    Returns:
+        tuple:
+            - encoded_mapping (dict): A mapping of new encoded column names to their original names.
+            - id_mapping (dict): A mapping of original 'SQ1' values to their encoded numerical values.
+    '''
     original_columns = responses_df.columns.tolist()
     encoded_mapping = encode_column_names(original_columns)
 
-    # Rename columns in the DataFrame
     responses_df.rename(columns={v: k for k, v in encoded_mapping.items()}, inplace=True)
 
-    # Step 2: Fill Missing Values
     responses_df.fillna('Not Taken', inplace=True)
 
-    # Step 3: Encode Student IDs in 'SQ1'
     label_encoder = LabelEncoder()
     responses_df['SQ1'] = label_encoder.fit_transform(responses_df['SQ1'])
     responses_df.rename(columns={'SQ1': 'SQ1_encoded'}, inplace=True)
 
-    # Save mapping for later use
     id_mapping = dict(zip(label_encoder.classes_, label_encoder.transform(label_encoder.classes_)))
 
+    # Some names that were recorded for a participant's major was too long, so they needed to be shortened.
     replacement_map = {
         'ARTIFICIAL INTELLIGENCE IN PRODUCT INNOVATION': 'AIPI',
         'ARTIFICIAL INTELLIGENCE': 'AIPI',
@@ -112,7 +147,7 @@ def preprocessing(responses_df):
         'FGG': 'UNDECLARED'
     }
 
-    # Normalize 'SQ2' and apply replacements
+    # Normalized 'SQ2' and applied the above map to the users' inputs.
     responses_df['SQ2'] = (
         responses_df['SQ2']
         .str.strip()
@@ -128,8 +163,14 @@ def preprocessing(responses_df):
 
     return encoded_mapping, id_mapping
 
-#-------
+# ----------------------------
+# Visualizations
+# ----------------------------
 def pow_analysis():
+    '''
+    [Taken from GeeksforGeeks/Lecture Slides]
+    Performs a general power analysis to find the sample size required (achieved 25.525 and got 31 survey responses)
+    '''
     # factors for power analysis
     alpha = 0.05
     power = 0.8
@@ -143,10 +184,15 @@ def pow_analysis():
     print('Sample size/Number needed in each group: {:.3f}'.format(n))
 
 def print_wordcloud(responses_df):
-    # Combine text from columns S9 and S12 into a single string
+    '''
+    Prints out the wordcloud of combined responses for SQ9 and SQ12.
+
+    Args:
+        responses_df (pd.DataFrame): The input DataFrame containing survey responses.
+    '''
+    # Combines responses for columns S9 and S12 into a single string.
     text = ' '.join(responses_df['SQ9'].dropna().astype(str)) + ' ' + ' '.join(responses_df['SQ12'].dropna().astype(str))
 
-    # Generate WordCloud
     print_wordcloud = WordCloud(
         width=800,
         height=400,
@@ -155,7 +201,6 @@ def print_wordcloud(responses_df):
         max_words=200
     ).generate(text)
 
-    # Display the WordCloud
     plt.figure(figsize=(10, 5))
     plt.imshow(print_wordcloud, interpolation='bilinear')
     plt.axis('off')  # Hide axes
@@ -163,6 +208,14 @@ def print_wordcloud(responses_df):
     plt.show()
 
 def print_violin(responses_df):
+    '''
+    Prints out the violin visualization of combined responses for SQ8, SQ11, SQ15, and SQ17.
+
+    Args:
+        responses_df (pd.DataFrame): The input DataFrame containing survey responses.
+    '''
+
+    # Specifies dataframe, the columns, and leaves defaults facet row and col.
     fig = px.violin(data_frame=responses_df, x=None, y=['SQ8', 'SQ11', 'SQ15', 'SQ17'],
     color=None, facet_row=None, facet_col=None, )
     fig.update_layout(
@@ -171,6 +224,12 @@ def print_violin(responses_df):
     fig.show()
 
 def print_contour_map(responses_df):
+    '''
+    Prints out the contour map visualization of combined responses for SQ5 and SQ10.
+
+    Args:
+        responses_df (pd.DataFrame): The input DataFrame containing survey responses.
+    '''
     fig = px.density_contour(
         data_frame=responses_df, 
         x='SQ5', 
@@ -179,14 +238,15 @@ def print_contour_map(responses_df):
         facet_row=None, 
         facet_col=None
     )
+
+    # Constantly updates the contours and fills in diverging colors.
     fig.update_traces(contours_coloring='fill', contours_showlabels=True)
 
-    # Adjust layout to make the figure square and update text color
     fig.update_layout(
-        width=600,  # Set the width
-        height=600,  # Set the height
-        xaxis=dict(scaleanchor="y"),  # Make x-axis and y-axis scales equal
-        font=dict(color="black"),  # Set text color to white
+        width=600,
+        height=600,
+        xaxis=dict(scaleanchor="y"),
+        font=dict(color="black"),
         title="Contour Map of SQ5 and SQ10"
     )
 
@@ -194,6 +254,14 @@ def print_contour_map(responses_df):
     fig.show()
 
 def print_histo_10_13_o_score(responses_df):
+    '''
+    Prints out the histogram of combined responses for SQ10, SQ13, and Objective score.
+
+    Args:
+        responses_df (pd.DataFrame): The input DataFrame containing survey responses.
+    '''
+
+    # Specify the objective scores not equal to 0.
     df = responses_df[(responses_df[['o_score', 'SQ10', 'SQ13']] != 0).all(axis=1)]
 
     fig = px.histogram(
@@ -206,23 +274,26 @@ def print_histo_10_13_o_score(responses_df):
         cumulative=False
     )
 
-    # Update layout to make it more suitable for a Python notebook
     fig.update_layout(
-        width=800,  # Set a width for the figure
-        height=600,  # Set a height for the figure
-        font=dict(size=12),  # Adjust font size for better readability
-        paper_bgcolor="white",  # Set background to white
-        plot_bgcolor="white",  # Set plot area background to white
+        width=800, 
+        height=600,
+        font=dict(size=12),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
         title="Histogram of SQ10, SQ13, and Objective Score",
     )
 
-    # Display the figure
     fig.show()
 
 def print_scatter_6_13_o_score(responses_df):
+    '''
+    Prints out the 3D Scatterplot of combined responses for SQ6, SQ13, and Objective score.
+
+    Args:
+        responses_df (pd.DataFrame): The input DataFrame containing survey responses.
+    '''
     df = responses_df[responses_df['o_score'] != 0]
 
-    # Create a 3D scatter plot
     fig = px.scatter_3d(
         data_frame=df, 
         x='SQ6', 
@@ -231,23 +302,26 @@ def print_scatter_6_13_o_score(responses_df):
         color=None
     )
 
-    # Update layout for better visualization
     fig.update_layout(
-        width=800,  # Set the width of the plot
-        height=600,  # Set the height of the plot
-        font=dict(size=12),  # Adjust font size for readability
-        paper_bgcolor="white",  # Set the background to white
-        plot_bgcolor="white",  # Set the plot area background to white
+        width=800,
+        height=600,
+        font=dict(size=12),
+        paper_bgcolor="white",
+        plot_bgcolor="white", 
         title="3D Scatter Plot of SQ6, SQ13, and Objective Score"
     )
 
-    # Display the figure
     fig.show()
 
 def print_scatter_7_13_o_score(responses_df):
+    '''
+    Prints out the 3D Scatterplot of combined responses for SQ7, SQ13, and Objective score.
+
+    Args:
+        responses_df (pd.DataFrame): The input DataFrame containing survey responses.
+    '''
     df = responses_df[responses_df['o_score'] != 0]
 
-    # Create a 3D scatter plot
     fig = px.scatter_3d(
         data_frame=df, 
         x='SQ7', 
@@ -256,28 +330,31 @@ def print_scatter_7_13_o_score(responses_df):
         color=None
     )
 
-    # Update layout for better visualization
     fig.update_layout(
-        width=800,  # Set the width of the plot
-        height=600,  # Set the height of the plot
-        font=dict(size=12),  # Adjust font size for readability
-        paper_bgcolor="white",  # Set the background to white
-        plot_bgcolor="white"  # Set the plot area background to white
+        width=800,
+        height=600,
+        font=dict(size=12), 
+        paper_bgcolor="white", 
+        plot_bgcolor="white" 
     )
 
     fig.update_layout(
         title="3D Scatter Plot of SQ7, SQ13, and Objective Score",
     )
 
-    # Display the figure
     fig.show()
 
 def print_pie_chart(responses_df):
-    # Check for None conditions (raise error if implemented logic fails)
+    '''
+    Prints out the Pie chart of SQ18.
+
+    Args:
+        responses_df (pd.DataFrame): The input DataFrame containing survey responses.
+    '''
+    # Check for None conditions in the distribution.
     if None is not None or None is not None:
         raise NotImplementedError("Condition not implemented.")
 
-    # Create a pie chart
     fig = px.pie(
         data_frame=responses_df, 
         names='SQ18', 
@@ -289,61 +366,67 @@ def print_pie_chart(responses_df):
         title="Pie Chart of SQ18"
     )
 
-    # Display the figure
     fig.show()
 
 def print_scatter_2_to_6(responses_df):
-    # Drop rows with NaN values in specific columns (replace None with actual column names)
+    '''
+    Prints out Scatterplot of combined responses for SQ2 - SQ6.
+
+    Args:
+        responses_df (pd.DataFrame): The input DataFrame containing survey responses.
+    '''
+    # Drop rows with NaN values in the cols.
     df = responses_df.dropna(subset=['SQ5', 'SQ2'])
 
-    # Create a scatter plot
     fig = px.scatter(
         data_frame=df,
         x='SQ5', 
         y='SQ2', 
-        color='SQ3',  # Replace with an appropriate column name or remove if not needed
-        symbol='SQ4',  # Replace with an appropriate column name or remove if not needed
-        size='SQ6',    # Replace with an appropriate column name or remove if not needed
+        color='SQ3', 
+        symbol='SQ4',
+        size='SQ6', 
         trendline=None, 
         marginal_x=None, 
         marginal_y=None,
         facet_row=None, 
         facet_col=None,
-        render_mode='auto'  # Replace with the appropriate value if needed
+        render_mode='auto'
     )
 
-    # Update figure layout (customize if necessary)
     fig.update_layout(
         title="Scatter Plot of SQ5 vs SQ2",
         xaxis_title="SQ5",
         yaxis_title="SQ2"
     )
 
-    # Display the figure inline in the notebook
     fig.show()
 
 def print_scatter_14_16(responses_df):
-    # Drop rows with NaN values in specific columns (replace None with actual column names)
-    if None is not None:  # Replace None with the column to check for NaN values
-        responses_df = responses_df.dropna(subset=['SQ16', 'SQ14'])  # Adjust column names as needed
+    '''
+    Prints out Scatterplot of combined responses for SQ14 and SQ16.
 
-    # Create a scatter plot
+    Args:
+        responses_df (pd.DataFrame): The input DataFrame containing survey responses.
+    '''
+    # Drop rows with NaN values in specific cols.
+    if None is not None:
+        responses_df = responses_df.dropna(subset=['SQ16', 'SQ14'])
+
     fig = px.scatter(
         data_frame=responses_df,
-        x='SQ16',  # Replace with the correct x-axis column name
-        y='SQ14',  # Replace with the correct y-axis column name
-        color=None,  # Replace with a column name for coloring, or keep as None
-        symbol=None,  # Replace with a column name for symbol mapping, or keep as None
-        size=None,  # Replace with a column name for point size, or keep as None
-        trendline=None,  # Add a trendline type (e.g., "ols") if needed
-        marginal_x=None,  # Add "box" or "violin" for marginal plots on x-axis
-        marginal_y=None,  # Add "box" or "violin" for marginal plots on y-axis
-        facet_row=None,  # Replace with a column name to create row facets, or keep as None
-        facet_col=None,  # Replace with a column name to create column facets, or keep as None,
-        render_mode='auto'  # Auto works for most cases
+        x='SQ16',
+        y='SQ14', 
+        color=None,
+        symbol=None,
+        size=None,
+        trendline=None,
+        marginal_x=None,
+        marginal_y=None,
+        facet_row=None,
+        facet_col=None,
+        render_mode='auto'
     )
 
-    # Update figure layout (optional customization)
     fig.update_layout(
         title="Scatter Plot of SQ16 vs SQ14",
         xaxis_title="SQ16",
@@ -351,14 +434,21 @@ def print_scatter_14_16(responses_df):
         autosize=True
     )
 
-    # Display the figure in the notebook
     fig.show()
-#-------
 
+# ----------------------------
+# Main
+# ----------------------------
 def main():
+    '''
+    The Main function.
+    '''
     responses_df = pd.read_csv('./responses_df_with_scores.csv')
+
+    # PandasGUI for easier visualization tampering for new data scientists!
     show(responses_df)
 
+    # Power Analysis and Visualization functions
     pow_analysis()
     print_wordcloud(responses_df)
     print_violin(responses_df)
