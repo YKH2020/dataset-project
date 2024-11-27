@@ -4,7 +4,12 @@ from analysis import o_score, encode_column_names, pow_analysis
 
 @pytest.fixture
 def sample_df():
-    """Fixture to create a sample DataFrame for testing."""
+    '''
+    Creates a sample df for testing.
+
+    Returns:
+        pd.Dataframe: The dataframe created from the synthetic data.
+    '''
     data = {
         'SQ18': [
             'AIPI 520 - Modeling Process & Algorithms',
@@ -32,7 +37,7 @@ def sample_df():
     return pd.DataFrame(data)
 
 def test_o_score(sample_df):
-    """Test the o_score calculation function."""
+    '''Ensure 'o_score' column is created and scores are calculated correctly.'''
     result = o_score(sample_df)
     assert 'o_score' in result.columns, "o_score column was not created"
     assert result['o_score'].iloc[0] == 5, "o_score calculation is incorrect for AIPI 520"
@@ -40,11 +45,11 @@ def test_o_score(sample_df):
     assert result['o_score'].iloc[2] == 5, "o_score calculation is incorrect for AIPI 510"
 
 def test_encode_column_names():
-    """Test the column name encoding."""
+    '''Tests the column name encoding.'''
     columns = [f"Column{i}" for i in range(34)]
     encoded_mapping = encode_column_names(columns)
 
-    # Validate encoded keys
+    # Validates encoded keys.
     assert "SQ1" in encoded_mapping, "SQ1 encoding is missing"
     assert "SQ18" in encoded_mapping, "SQ18 encoding is missing"
     assert "BQ1" in encoded_mapping, "BQ1 encoding is missing"
@@ -53,7 +58,7 @@ def test_encode_column_names():
     assert len(encoded_mapping) == 33, f"Unexpected number of encoded columns: {len(encoded_mapping)}"
 
 def test_power_analysis(capsys):
-    """Test the power analysis function."""
+    '''Test the power analysis function.'''
     pow_analysis()
     captured = capsys.readouterr()
     assert "Sample size/Number needed in each group" in captured.out, "Power analysis output is missing"
